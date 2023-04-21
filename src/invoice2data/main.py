@@ -94,7 +94,7 @@ if not logger.handlers:
     logger.addHandler(stream_handler)
 
 
-def extract_data(invoicefile, templates=None, input_module=None):
+def extract_data(invoicefile, templates=None, input_module=None, use_fallback=False):
     """Extracts structured data from PDF/image invoices.
 
     This function uses the text extracted from a PDF file or image and
@@ -157,7 +157,7 @@ def extract_data(invoicefile, templates=None, input_module=None):
     templates_matched = filter(lambda t: t.matches_input(extracted_str), templates)
     templates_matched = sorted(templates_matched, key=lambda k: k['priority'], reverse=True)
     if not templates_matched:
-        if ocrmypdf.have_ocrmypdf() and input_module is not ocrmypdf:
+        if ocrmypdf.have_ocrmypdf() and use_fallback and input_module is not ocrmypdf:
             logger.debug("Text extraction failed, falling back to ocrmypdf")
             extracted_str, invoicefile, templates_matched = extract_data_fallback_ocrmypdf(invoicefile, templates)
             if not templates_matched:
@@ -221,6 +221,10 @@ def create_parser():
     )
 
     parser.add_argument(
+        "--use-fallback", dest="use_fallback", action="store_true", help="Use ocrmypdf as fallback for reading pdf."
+    )
+
+    parser.add_argument(
         "--copy",
         "-c",
         dest="copy",
@@ -281,6 +285,7 @@ def main(args=None):
 
     input_module = input_mapping[args.input_reader] if args.input_reader is not None else None
     output_module = output_mapping[args.output_format]
+    use_fallback = args.use_fallback
 
     templates = []
 
@@ -296,7 +301,7 @@ def main(args=None):
     output = []
     for f in args.input_files:
         try:
-            res = extract_data(f.name, templates=templates, input_module=input_module)
+            res = extract_data(f.name, templates=templates, input_module=input_module, use_fallback=use_fallback)
             if res:
                 logger.info(res)
                 output.append(res)
